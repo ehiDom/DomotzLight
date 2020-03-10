@@ -1,0 +1,166 @@
+esphome:
+  name: domotzlight
+  platform: ESP8266
+  board: nodemcuv2
+
+wifi:
+  ssid: "huntDom"
+  password: "20042018"
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Domotzlight Fallback Hotspot"
+    password: "kCvIY9nGl3yQ"
+
+captive_portal:
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+# Enable web_server:
+web_server:
+  port: 80
+
+# Allow flash over the air
+ota:
+
+# Declare the Led Strip
+light:
+  - platform: neopixelbus
+    type: GRBW
+    pin: GPIO3 #RX Pin on NodeMCU
+    num_leds: 30
+    variant: SK6812 #You can change Led Strip Type
+    name: "domotzLight1" #Name assigned to the light in Home Assistant
+    id: domotzLight1
+
+# Declaration of global variables
+globals:
+ #setupMenu = false - allow dimming
+ #setupMenu = true - allow color change
+   - id: setupMenu
+     type: bool
+     restore_value: no
+     initial_value: 'false'
+   - id: rotaryOut
+     type: int
+     restore_value: no
+     initial_value: '0'
+   - id: oldValue
+     type: int
+     restore_value: no
+     initial_value: '0'     
+   - id: oldBright
+     type: int
+     restore_value: no
+     initial_value: '0'     
+   - id: oldColor
+     type: int
+     restore_value: no
+     initial_value: '0'     
+
+
+# Declaration of rotary encoder
+sensor:
+  - platform: rotary_encoder
+    id: rotEnc
+    name: "Rotary Encoder Value"
+    pin_a: D1  #CLK Pin
+    pin_b: D2  #DT Pin
+    #Following the script that will be executed every time the rotary encoder value changes
+    on_value:
+       then:
+       #you can add more cases in the switch case below to create additional presetting colors
+         - lambda: |-
+             auto call = id(domotzLight1).turn_on();
+             if(id(setupMenu)){
+               //seteupMenu == 1 --> in the menu to change color
+               int newColor = (int)x-id(oldValue)+id(oldColor);
+               ESP_LOGD("main", "Color Setup. New Color: %d", newColor);
+               switch(newColor){
+                case(1):
+                   ESP_LOGD("main", "RED");
+                   call.set_rgb(1.0, 0.0, 0.0);
+                   call.set_brightness((float)id(oldBright)/10);
+                   call.set_white(0);
+                   id(oldColor) = newColor;
+                   break;
+                case(2):
+                   ESP_LOGD("main", "BLUE");
+                   call.set_rgb(0.0, 0.0, 1.0);
+                   call.set_brightness((float)id(oldBright)/10);
+                   call.set_white(0);
+                   id(oldColor) = newColor;
+                   break;
+                case(3):
+                   ESP_LOGD("main", "GREEN");
+                   call.set_rgb(0.0, 1.0, 0.0);
+                   call.set_brightness((float)id(oldBright)/10);
+                   call.set_white(0);
+                   id(oldColor) = newColor;
+                   break;
+                case(4):
+                   ESP_LOGD("main", "Cold WHITE-RGB");
+                   call.set_rgb(1.0, 1.0, 1.0);
+                   call.set_brightness((float)id(oldBright)/10);
+                   call.set_white(0);
+                   id(oldColor) = newColor;
+                   break;
+                case(5):
+                   ESP_LOGD("main", "Warm WHITE");
+                   call.set_rgb(1.0, 1.0, 1.0);
+                   call.set_brightness(0);
+                   call.set_white((float)id(oldBright)/10);
+                   id(oldColor) = newColor;
+                   break;
+                default:
+                   ESP_LOGD("main", "Color exceeded - no action");
+               }
+             }else{
+               //setupMenu == 0 --> in the menu to change brightness
+               int newBright = (int)x-id(oldValue)+id(oldBright);
+               ESP_LOGD("main","menu bright. New Bright: %d", newBright);
+               if (1<newBright && newBright <11){
+                 //check if warm white or not
+                 if(id(oldColor)==5){
+                   call.set_white((float)newBright/10);
+                   call.set_brightness(0);
+                 }else{
+                   call.set_white(0);
+                   call.set_brightness((float)newBright/10);
+                 }
+                 id(oldBright) = newBright;
+               }
+               else {
+                 ESP_LOGD("main","brightness exceeded - no action");
+               }
+             }
+             id(oldValue) = x;
+             call.perform();
+
+# declare the switch of the rotary encoder
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: D5
+      mode: INPUT_PULLUP
+      inverted: True
+    name: "Rotary Encoder Switch"
+    #toggle on/off when click on the switch
+    on_click:
+      then:
+        - light.toggle: domotzLight1
+        - lambda: |-
+            id(setupMenu) = false;
+            ESP_LOGD("main", "Pressed switch. setupMenu = %d", id(setupMenu));
+    #move from dimming to color setup when long press on the switch
+    on_multi_click:
+    - timing:
+        - ON for at least 0.5s
+      then:
+        - lambda: |-
+            id(setupMenu) = !id(setupMenu);
+            ESP_LOGD("main", "Pressed double switch. setupMenu = %d", id(setupMenu));
