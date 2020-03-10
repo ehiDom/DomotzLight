@@ -4,8 +4,8 @@ esphome:
   board: nodemcuv2
 
 wifi:
-  ssid: "huntDom"
-  password: "20042018"
+  ssid: "your_WiFi_network"
+  password: "your_WiFi_password"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
