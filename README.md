@@ -5,3 +5,6 @@ The goal of this project is to use EspHome on a ESP8266 module (such as NodeMcu 
 
 
 ![Domotz-Light banner](/images/Domotz-light_banner.jpg)
+
+
+Follow the wiki for all the details: https://github.com/MrDomotz/DomotzLight/wiki
